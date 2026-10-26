@@ -108,7 +108,7 @@ language sql stable as $$
     from members m where m.id = a.member_id
 $$;
 
--- 我的火柴：我點燃的案件（管理者看全部）
+-- 我的火柴：我點燃的案件
 create or replace function get_my_cases() returns jsonb
 language plpgsql security definer stable as $$
 declare me members := require_member();
@@ -135,7 +135,7 @@ begin
                      from case_days d where d.case_id = c.id and d.status = 'active'), '[]'::jsonb)
                ) as case_json
           from cases c join members o on o.id = c.owner_id
-         where (c.owner_id = me.id or me.role = 'admin')
+         where c.owner_id = me.id
            and (c.status = 'active' or c.updated_at > app_now() - interval '14 days')
            and (c.status = 'extinguished'
                 or exists (select 1 from case_days d where d.case_id = c.id and d.status = 'active' and d.day >= tw_today() - 7))

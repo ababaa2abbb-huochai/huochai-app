@@ -2,3 +2,5 @@ node_modules/
 dist/
 .env
 .env.local
+test/e2e/shots*/
+dist-demo/

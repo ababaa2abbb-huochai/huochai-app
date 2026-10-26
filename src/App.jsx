@@ -1,0 +1,129 @@
+import { useEffect, useState, useCallback } from 'preact/hooks';
+import { Ctx, Flame, Icon, ICONS } from './ui.jsx';
+import { twStamp } from './lib/text.js';
+import { Calendar } from './screens/Calendar.jsx';
+import { Availability } from './screens/Availability.jsx';
+import { Ignite } from './screens/Ignite.jsx';
+import { Cases } from './screens/Cases.jsx';
+import { Shifts } from './screens/Shifts.jsx';
+import { Notes } from './screens/Notes.jsx';
+import { Admin } from './screens/Admin.jsx';
+
+export function App({ api }) {
+  const [version, setVersion] = useState(0);
+  const [me, setMe] = useState(null);
+  const [route, setRoute] = useState({ tab: 'calendar' });
+  const [toastMsg, setToast] = useState(null);
+
+  const refresh = useCallback(() => setVersion((v) => v + 1), []);
+  useEffect(() => api.subscribe(refresh), [api, refresh]);
+  useEffect(() => {
+    let alive = true;
+    api.rpc('get_me').then((m) => alive && setMe(m)).catch(() => alive && setMe(null));
+    return () => { alive = false; };
+  }, [api, version]);
+
+  const toast = useCallback((text, err = false) => {
+    setToast({ text, err, id: Math.random() });
+  }, []);
+  useEffect(() => {
+    if (!toastMsg) return undefined;
+    const t = setTimeout(() => setToast(null), toastMsg.err ? 4200 : 2400);
+    return () => clearTimeout(t);
+  }, [toastMsg]);
+
+  const go = useCallback((tab, params = {}) => {
+    setRoute({ tab, ...params });
+    window.scrollTo(0, 0);
+  }, []);
+
+  if (!me) {
+    return <div class="loading"><Flame size={36} color="#C2410C" />正在載入…</div>;
+  }
+  if (me.status !== 'active') {
+    return (
+      <div class="loading">
+        <Flame size={36} color="#C2410C" />
+        <p class="empty">你的帳號（{me.name}）還沒開通。<br />請請管理者在「管理」裡核准你。</p>
+      </div>
+    );
+  }
+
+  const ctx = { api, version, refresh, me, toast, go, route, now: me.now, today: me.today };
+  const tab = route.tab;
+  const Screen = {
+    calendar: Calendar, avail: Availability, ignite: Ignite, cases: Cases,
+    shifts: Shifts, notes: Notes, admin: Admin,
+  }[tab] || Calendar;
+
+  return (
+    <Ctx.Provider value={ctx}>
+      <div class="app">
+        {api.isDemo && <DemoBar api={api} me={me} toast={toast} />}
+        {!['ignite'].includes(tab) && !route.caseId && (
+          <header class="top">
+            <div class="brand"><Flame color="#C2410C" />賣女孩的小火柴</div>
+            <div class="row" style="gap:0">
+              {me.role === 'admin' && (
+                <button class="icon-btn" aria-label="管理" onClick={() => go('admin')}><Icon d={ICONS.gear} /></button>
+              )}
+              <button class="icon-btn" aria-label={`通知，${me.unread} 則未讀`} onClick={() => go('notes')}>
+                <Icon d={ICONS.bell} />
+                {me.unread > 0 && <span class="badge">{me.unread > 99 ? '99+' : me.unread}</span>}
+              </button>
+            </div>
+          </header>
+        )}
+        <main class="main"><Screen key={tab} /></main>
+        <Nav tab={tab} go={go} />
+        {toastMsg && <div class={`toast ${toastMsg.err ? 'err' : ''}`} role="status">{toastMsg.text}</div>}
+      </div>
+    </Ctx.Provider>
+  );
+}
+
+function Nav({ tab, go }) {
+  const item = (key, label, icon) => (
+    <button aria-current={tab === key ? 'page' : undefined} onClick={() => go(key)}>
+      <Icon d={icon} />{label}
+    </button>
+  );
+  return (
+    <nav class="nav" aria-label="主選單">
+      {item('calendar', '月曆', ICONS.cal)}
+      {item('shifts', '我的班', ICONS.check)}
+      <button class="fab" aria-current={tab === 'ignite' ? 'page' : undefined} onClick={() => go('ignite')}>
+        <span class="dot"><Flame size={26} color="#fff" /></span>點火柴
+      </button>
+      {item('cases', '我的火柴', ICONS.list)}
+      {item('avail', '填班', ICONS.pen)}
+    </nav>
+  );
+}
+
+function DemoBar({ api, me, toast }) {
+  const [people, setPeople] = useState([]);
+  useEffect(() => {
+    api.listIdentities().then(setPeople);
+  }, [api, me.id]);
+  const advance = async (h) => {
+    await api.advance(h);
+    toast(`時間快轉 ${h >= 24 ? h / 24 + ' 天' : h + ' 小時'}`);
+  };
+  return (
+    <div class="demo-bar" role="region" aria-label="試玩控制">
+      <span class="tag">試玩</span>
+      <label class="row" style="gap:6px">我是
+        <select value={me.id} onChange={(e) => api.switchTo(e.currentTarget.value)}>
+          {people.map((p) => <option value={p.id}>{p.name}{p.role === 'admin' ? '（管理者）' : ''}</option>)}
+        </select>
+      </label>
+      <span class="clock">現在 {twStamp(me.now)}</span>
+      <button onClick={() => advance(1)}>＋1 小時</button>
+      <button onClick={() => advance(24)}>＋1 天</button>
+      <button onClick={async () => {
+        if (window.confirm('清除所有試玩資料，回到一開始的狀態？')) { await api.reset(); toast('已重設試玩資料'); }
+      }}>重設</button>
+    </div>
+  );
+}

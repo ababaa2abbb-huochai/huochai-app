@@ -436,7 +436,7 @@ begin
     insert into case_addresses (case_id, address) values (cid, trim(p ->> 'address'));
   end if;
   for spec in select * from jsonb_array_elements(p -> 'days') order by (value ->> 'day') loop
-    perform create_case_day(cid, spec, p -> 'cancel_conflict');
+    perform create_case_day(cid, spec, coalesce(spec -> 'cancel_conflict', p -> 'cancel_conflict'));
   end loop;
   perform audit('ignite', jsonb_build_object('case_id', cid));
   return cid;
