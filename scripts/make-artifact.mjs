@@ -20,8 +20,17 @@ const page = `<title>賣女孩的小火柴</title>
 `;
 writeFileSync(join(out, 'index.html'), page);
 
-for (const f of readdirSync(join(src, 'assets'))) {
-  if (f.endsWith('.css')) continue;
-  copyFileSync(join(src, 'assets', f), join(out, 'assets', f));
+// Artifact 不收 .data 檔：改名成 .data.wasm（內容不變），並更新程式裡的檔名
+const files = readdirSync(join(src, 'assets')).filter((f) => !f.endsWith('.css'));
+const renames = Object.fromEntries(files.filter((f) => f.endsWith('.data')).map((f) => [f, f + '.wasm']));
+for (const f of files) {
+  const target = join(out, 'assets', renames[f] || f);
+  if (f.endsWith('.js')) {
+    let code = readFileSync(join(src, 'assets', f), 'utf8');
+    for (const [a, b] of Object.entries(renames)) code = code.split(a).join(b);
+    writeFileSync(target, code);
+  } else {
+    copyFileSync(join(src, 'assets', f), target);
+  }
 }
 console.log(readdirSync(join(out, 'assets')).join('\n'));
