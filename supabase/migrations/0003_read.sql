@@ -98,14 +98,15 @@ end $$;
 create or replace function assignment_json(a assignments, p_day date) returns jsonb
 language sql stable as $$
   select jsonb_build_object(
-    'id', a.id, 'member_id', a.member_id, 'name', m.name, 'rank', a.rank, 'state', a.state,
+    'id', a.id, 'member_id', a.member_id, 'name', coalesce(m.name, a.guest_name), 'guest', a.member_id is null,
+    'rank', a.rank, 'state', a.state,
     'direct', a.direct, 'invited_at', a.invited_at, 'deadline', a.deadline, 'overdue', a.overdue,
     'responded_at', a.responded_at, 'cancel_reason', a.cancel_reason, 'release_reason', a.release_reason,
     'time_change_pending', a.time_change_pending,
     'wage', (select wage from assignment_wages where assignment_id = a.id),
     'availability', coalesce((select state from availability where member_id = a.member_id and day = p_day), 'none'),
-    'paused_now', busy_today(a.member_id, app_now()))
-    from members m where m.id = a.member_id
+    'paused_now', a.member_id is not null and busy_today(a.member_id, app_now()))
+    from (select 1) one left join members m on m.id = a.member_id
 $$;
 
 -- 我的火柴：我點燃的案件
@@ -128,6 +129,8 @@ begin
                    select jsonb_agg(jsonb_build_object(
                             'id', d.id, 'day', d.day, 'need', d.need, 'self_on', d.self_on, 'urgent', d.urgent,
                             'confirmed', confirmed_count(d.id),
+                            'started', d.started, 'final_short', d.final_short,
+                            'days_left', d.day - tw_today(),
                             'assignments', coalesce((
                               select jsonb_agg(assignment_json(a, d.day) order by a.rank)
                                 from assignments a where a.case_day_id = d.id), '[]'::jsonb))
@@ -164,8 +167,8 @@ begin
                    'wage', (select wage from assignment_wages where assignment_id = a.id),
                    'address', (select address from case_addresses where case_id = c.id),
                    'time_change_pending', a.time_change_pending,
-                   'teammates', (select jsonb_agg(m2.name order by a2.rank) from assignments a2 join members m2 on m2.id = a2.member_id
-                                  where a2.case_day_id = d.id and a2.state = 'confirmed' and a2.member_id <> me.id)) as x
+                   'teammates', (select jsonb_agg(coalesce(m2.name, a2.guest_name) order by a2.rank) from assignments a2 left join members m2 on m2.id = a2.member_id
+                                  where a2.case_day_id = d.id and a2.state = 'confirmed' and a2.member_id is distinct from me.id)) as x
             from assignments a join case_days d on d.id = a.case_day_id join cases c on c.id = d.case_id
            where a.member_id = me.id and a.state = 'confirmed' and d.status = 'active' and c.status = 'active'
              and d.day >= tw_today()
@@ -173,7 +176,7 @@ begin
           select day_summary(d.id) || jsonb_build_object(
                    'role', 'owner',
                    'address', (select address from case_addresses where case_id = c.id),
-                   'teammates', (select jsonb_agg(m2.name order by a2.rank) from assignments a2 join members m2 on m2.id = a2.member_id
+                   'teammates', (select jsonb_agg(coalesce(m2.name, a2.guest_name) order by a2.rank) from assignments a2 left join members m2 on m2.id = a2.member_id
                                   where a2.case_day_id = d.id and a2.state = 'confirmed'))
             from case_days d join cases c on c.id = d.case_id
            where c.owner_id = me.id and d.self_on and d.status = 'active' and c.status = 'active'

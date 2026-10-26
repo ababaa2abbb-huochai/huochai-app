@@ -11,7 +11,7 @@ grant execute on function
   ignite(jsonb), respond_invite(uuid, boolean), cancel_shift(uuid, text), respond_time_change(uuid, boolean),
   set_availability(jsonb), mark_notifications_read(), update_case(uuid, jsonb), set_day_options(uuid, jsonb),
   add_people(uuid, jsonb), make_direct(uuid), reorder(uuid, jsonb), move_day(uuid, date), add_day(uuid, jsonb, jsonb),
-  remove_day(uuid), replace_member(uuid, uuid, int), extinguish(uuid),
+  remove_day(uuid), replace_member(uuid, uuid, int), extinguish(uuid), add_guest(uuid, text, int), remove_guest(uuid),
   admin_add_member(text, text), admin_set_member(uuid, jsonb), admin_bind_line(uuid, text)
 to authenticated;
 

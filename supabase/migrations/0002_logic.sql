@@ -50,7 +50,8 @@ end $$;
 
 create or replace function notify(p_member uuid, p_kind text, p_payload jsonb default '{}'::jsonb) returns void
 language sql as $$
-  insert into notifications (member_id, kind, payload, created_at) values (p_member, p_kind, p_payload, app_now())
+  insert into notifications (member_id, kind, payload, created_at)
+  select p_member, p_kind, p_payload, app_now() where p_member is not null   -- 鄰家女孩沒有帳號，不發通知
 $$;
 
 create or replace function audit(p_action text, p_detail jsonb default '{}'::jsonb) returns void
@@ -192,7 +193,7 @@ declare
   now_ts timestamptz := app_now();
 begin
   select * into d from case_days where id = p_case_day for update;
-  if d.id is null or d.status <> 'active' then return; end if;
+  if d.id is null or d.status <> 'active' or d.started then return; end if;
   select * into c from cases where id = d.case_id;
   if c.status <> 'active' then return; end if;
 
@@ -384,6 +385,17 @@ begin
   end if;
 
   for person in select * from jsonb_array_elements(coalesce(spec -> 'people', '[]'::jsonb)) loop
+    if nullif(trim(coalesce(person ->> 'guest_name', '')), '') is not null then
+      -- 鄰家女孩：直接算已確認，時薪可不填
+      v_rank := v_rank + 1;
+      insert into assignments (case_day_id, guest_name, rank, state, direct, responded_at, created_at)
+      values (cd, trim(person ->> 'guest_name'), v_rank, 'confirmed', true, app_now(), app_now()) returning id into aid;
+      if nullif(person ->> 'wage', '') is not null then
+        insert into assignment_wages (assignment_id, wage) values (aid, (person ->> 'wage')::int);
+      end if;
+      direct_total := direct_total + 1;
+      continue;
+    end if;
     select * into pm from members where id = (person ->> 'member_id')::uuid;
     if pm.id is null or pm.status <> 'active' then raise exception 'member_not_active'; end if;
     if pm.id = c.owner_id then raise exception 'cannot_invite_self'; end if;
@@ -788,14 +800,20 @@ begin
   if d.self_on then perform close_other_invites(c.owner_id, p_new_day, nd); end if;
 
   for r in
-    select a.id, a.member_id, a.state, w.wage
+    select a.id, a.member_id, a.guest_name, a.state, w.wage
       from assignments a left join assignment_wages w on w.assignment_id = a.id
      where a.case_day_id = d.id and a.state in ('confirmed', 'invited', 'queued')
      order by case when a.state = 'confirmed' then 0 else 1 end, a.rank
   loop
     i := i + 1;
-    insert into assignments (case_day_id, member_id, rank, state, created_at)
-    values (nd, r.member_id, i, 'queued', app_now()) returning id into aid;
+    if r.member_id is null then
+      -- 鄰家女孩跟著搬到新日期（火柴自己跟她確認）
+      insert into assignments (case_day_id, guest_name, rank, state, direct, responded_at, created_at)
+      values (nd, r.guest_name, i, 'confirmed', true, app_now(), app_now()) returning id into aid;
+    else
+      insert into assignments (case_day_id, member_id, rank, state, created_at)
+      values (nd, r.member_id, i, 'queued', app_now()) returning id into aid;
+    end if;
     if r.wage is not null then insert into assignment_wages (assignment_id, wage) values (aid, r.wage); end if;
     perform release_assignment(r.id, 'moved', 'moved');
   end loop;
@@ -896,6 +914,53 @@ begin
 end $$;
 
 ------------------------------------------------------------
+-- 鄰家女孩：團隊以外、火柴自己找來的人
+------------------------------------------------------------
+create or replace function add_guest(p_case_day uuid, p_name text, p_wage int default null) returns uuid
+language plpgsql security definer as $$
+declare
+  d case_days := require_owner_of_day(p_case_day);
+  aid uuid;
+  over int;
+  r record;
+begin
+  if nullif(trim(coalesce(p_name, '')), '') is null then raise exception 'guest_name_required'; end if;
+  if confirmed_count(d.id) >= d.need then raise exception 'already_full'; end if;
+  insert into assignments (case_day_id, guest_name, rank, state, direct, responded_at, created_at)
+  values (d.id, trim(p_name),
+          (select coalesce(max(rank), 0) + 1 from assignments where case_day_id = d.id),
+          'confirmed', true, app_now(), app_now())
+  returning id into aid;
+  if p_wage is not null then insert into assignment_wages (assignment_id, wage) values (aid, p_wage); end if;
+  -- 多出來的邀請先撤回（從順位最後開始）
+  over := confirmed_count(d.id)
+        + (select count(*)::int from assignments where case_day_id = d.id and state = 'invited' and not overdue)
+        - d.need;
+  for r in select id from assignments where case_day_id = d.id and state = 'invited' order by rank desc loop
+    exit when over <= 0;
+    perform release_assignment(r.id, 'need_reduced');
+    over := over - 1;
+  end loop;
+  perform audit('add_guest', jsonb_build_object('case_day_id', d.id, 'name', p_name));
+  perform dispatch(d.id);
+  return aid;
+end $$;
+
+create or replace function remove_guest(p_assignment uuid) returns void
+language plpgsql security definer as $$
+declare
+  a assignments;
+  d case_days;
+begin
+  select * into a from assignments where id = p_assignment;
+  if a.id is null or a.member_id is not null then raise exception 'not_found'; end if;
+  d := require_owner_of_day(a.case_day_id);
+  update assignments set state = 'released', release_reason = 'guest_removed' where id = a.id;
+  perform audit('remove_guest', jsonb_build_object('assignment_id', a.id));
+  perform dispatch(d.id);
+end $$;
+
+------------------------------------------------------------
 -- 排程：每分鐘跑一次
 ------------------------------------------------------------
 create or replace function tick() returns jsonb
@@ -904,6 +969,7 @@ declare
   now_ts timestamptz := app_now();
   local_now timestamp := tw(now_ts);
   r record;
+  r2 record;
   n_overdue int := 0;
   n_remind int := 0;
   next_month date;
@@ -918,6 +984,41 @@ begin
      where case_day_id = r.case_day_id and state = 'invited' and not overdue and deadline <= now_ts;
     n_overdue := n_overdue + 1;
     perform dispatch(r.case_day_id);
+  end loop;
+
+  -- 缺人提醒火柴：出班前 3 天（10:00 起）、出班前一天 18:00
+  for r in
+    select d.id, d.day, d.need, c.owner_id, d.short3_notified, d.short1_notified
+      from case_days d join cases c on c.id = d.case_id
+     where d.status = 'active' and c.status = 'active' and not d.started
+       and d.day between local_now::date and local_now::date + 3
+  loop
+    if confirmed_count(r.id) >= r.need then continue; end if;
+    if r.day = local_now::date + 1 and local_now::time >= time '18:00' and not r.short1_notified then
+      update case_days set short1_notified = true, short3_notified = true where id = r.id;
+      perform notify(r.owner_id, 'short_staffed', day_summary(r.id) || jsonb_build_object(
+        'missing', r.need - confirmed_count(r.id), 'stage', 'day_before'));
+    elsif local_now::time >= time '10:00' and not r.short3_notified then
+      update case_days set short3_notified = true where id = r.id;
+      perform notify(r.owner_id, 'short_staffed', day_summary(r.id) || jsonb_build_object(
+        'missing', r.need - confirmed_count(r.id), 'stage', 'three_days'));
+    end if;
+  end loop;
+
+  -- 開工：出班當天到了開始時間，還沒回覆的邀請全部關閉
+  for r in
+    select d.id, d.need from case_days d join cases c on c.id = d.case_id
+     where d.status = 'active' and c.status = 'active' and not d.started
+       and (d.day < local_now::date or (d.day = local_now::date and local_now::time >= c.start_time))
+  loop
+    update case_days set started = true, final_short = greatest(0, r.need - confirmed_count(r.id)) where id = r.id;
+    for r2 in select id, member_id from assignments where case_day_id = r.id and state in ('invited', 'queued') loop
+      update assignments set state = 'withdrawn', release_reason = 'started' where id = r2.id;
+    end loop;
+    for r2 in select member_id from assignments where case_day_id = r.id and state = 'withdrawn' and release_reason = 'started'
+               and invited_at is not null loop
+      perform notify(r2.member_id, 'day_started', day_summary(r.id));
+    end loop;
   end loop;
 
   -- 出班前一天 20:00 後提醒

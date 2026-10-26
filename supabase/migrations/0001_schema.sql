@@ -47,6 +47,10 @@ create table case_days (
   status             text not null default 'active' check (status in ('active', 'removed')),
   exhausted_notified boolean not null default false,
   full_notified      boolean not null default false,
+  short3_notified    boolean not null default false,   -- 出班前 3 天缺人提醒過了
+  short1_notified    boolean not null default false,   -- 出班前一天 18:00 缺人提醒過了
+  started            boolean not null default false,   -- 已開工：不再發邀請
+  final_short        int,                               -- 開工時還缺幾人（月報用）
   unique (case_id, day)
 );
 
@@ -62,10 +66,12 @@ create table case_days (
 --   cancelled 女孩取消
 --   released  火柴釋出（減人、改期、少一天、時間變更沒辦法、熄滅）
 --   replaced  被代班替換
+-- 鄰家女孩（團隊以外的人）：member_id 為空、guest_name 填名字，直接算已確認
 create table assignments (
   id                  uuid primary key default gen_random_uuid(),
   case_day_id         uuid not null references case_days(id) on delete cascade,
-  member_id           uuid not null references members(id),
+  member_id           uuid references members(id),
+  guest_name          text check (guest_name is null or length(trim(guest_name)) > 0),
   rank                int not null,
   state               text not null check (state in ('queued', 'invited', 'confirmed', 'declined', 'full', 'taken',
                                                      'withdrawn', 'skipped', 'cancelled', 'released', 'replaced')),
@@ -79,7 +85,8 @@ create table assignments (
   time_change_pending boolean not null default false,
   reminded            boolean not null default false,
   created_at          timestamptz not null default now(),
-  unique (case_day_id, member_id)
+  unique (case_day_id, member_id),
+  check (member_id is not null or guest_name is not null)
 );
 create index assignments_member_idx on assignments (member_id, state);
 create index assignments_day_idx on assignments (case_day_id, state, rank);

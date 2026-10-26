@@ -438,3 +438,89 @@ test('出班前一天 20:00 提醒、每月 15 號提醒填班', async () => {
   await t.rpc('tick');
   assert.equal((await t.notes('長苓', 'day_before')).length, 1);
 });
+
+test('鄰家女孩：算進人數、直接算確認、多出來的邀請撤回、沒有通知', async () => {
+  const t = await team();
+  const { did } = await igniteBasic(t); // 需要 3 人含火柴：長苓、丹哥邀請中
+  const gid = await t.rpc('add_guest', did, '小美', null);
+  assert.ok(gid);
+  assert.deepEqual(await t.states(did), { 長苓: 'invited', 丹哥: 'withdrawn', 小薇: 'queued', Kiwi: 'queued', 守宜: 'queued' });
+  const cases = await t.rpc('get_my_cases');
+  const a = cases[0].days[0].assignments.find((x) => x.guest);
+  assert.equal(a.name, '小美');
+  assert.equal(cases[0].days[0].confirmed, 2);
+  // 加到滿了再加會擋
+  const [c] = await t.q(`select id from assignments where case_day_id = $1 and member_id = $2`, [did, t.ids['長苓']]);
+  await t.as('長苓');
+  await t.rpc('respond_invite', c.id, true);
+  await t.as('蘿蔔');
+  await expectError(t.rpc('add_guest', did, '小華', 300), 'already_full');
+  // 移除鄰家女孩後照順位補位
+  await t.rpc('remove_guest', gid);
+  assert.equal((await t.states(did))['小薇'], 'invited');
+});
+
+test('點燃時直接加入鄰家女孩；改日期時跟著搬過去', async () => {
+  const t = await team();
+  await t.as('蘿蔔');
+  const cid = await t.rpc('ignite', { area: '中山區', job_type: '打包',
+    days: [{ day: '2026-11-17', need: 3, self_on: true, people: [{ guest_name: '阿美' }, t.person('長苓')] }] });
+  const did = await t.dayId(cid, '2026-11-17');
+  const rows = await t.q(`select coalesce(m.name, a.guest_name) n, a.state from assignments a left join members m on m.id = a.member_id where case_day_id = $1 order by rank`, [did]);
+  assert.deepEqual(rows.map((r) => [r.n, r.state]), [['阿美', 'confirmed'], ['長苓', 'invited']]);
+  const nd = await t.rpc('move_day', did, '2026-11-20');
+  const moved = await t.q(`select coalesce(m.name, a.guest_name) n, a.state from assignments a left join members m on m.id = a.member_id where case_day_id = $1 order by rank`, [nd]);
+  assert.deepEqual(moved.map((r) => [r.n, r.state]), [['阿美', 'confirmed'], ['長苓', 'invited']]);
+  // 女孩的「我的班」同組名單看得到鄰家女孩
+  const [inv] = await t.q(`select id from assignments where case_day_id = $1 and member_id = $2`, [nd, t.ids['長苓']]);
+  await t.as('長苓');
+  await t.rpc('respond_invite', inv.id, true);
+  const s = await t.rpc('get_my_shifts');
+  assert.deepEqual(s.shifts[0].teammates, ['阿美']);
+});
+
+test('缺人提醒：出班前 3 天、前一天 18:00 各一次；人滿了就不提醒', async () => {
+  const t = await team();
+  await t.as('蘿蔔');
+  await t.rpc('ignite', { area: '中山區', job_type: '打包',
+    days: [{ day: '2026-11-10', need: 3, self_on: true, people: [t.person('長苓')] }] });
+  await t.rpc('ignite', { area: '大安區', job_type: '整理',
+    days: [{ day: '2026-11-11', need: 2, self_on: true, people: [t.person('丹哥', 250, true)] }] });
+  await t.at('2026-11-07 09:00');
+  await t.rpc('tick');
+  assert.equal((await t.notes('蘿蔔', 'short_staffed')).length, 0, '10:00 前不提醒');
+  await t.at('2026-11-07 10:05');
+  await t.rpc('tick');
+  await t.rpc('tick');
+  let n = await t.notes('蘿蔔', 'short_staffed');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].payload.stage, 'three_days');
+  assert.equal(n[0].payload.missing, 2);
+  await t.at('2026-11-09 18:01');
+  await t.rpc('tick');
+  n = await t.notes('蘿蔔', 'short_staffed');
+  assert.equal(n.length, 2);
+  assert.equal(n[1].payload.stage, 'day_before');
+  assert.ok(n.every((x) => x.payload.area === '中山區'), '已滿的大安區不提醒');
+});
+
+test('開工：還沒回覆的邀請自動關閉並通知，記下缺幾人', async () => {
+  const t = await team();
+  await t.as('蘿蔔');
+  const cid = await t.rpc('ignite', { area: '中山區', job_type: '打包', start_time: '09:00',
+    days: [{ day: '2026-11-04', need: 3, self_on: true, people: [t.person('長苓'), t.person('丹哥'), t.person('小薇')] }] });
+  const did = await t.dayId(cid, '2026-11-04');
+  await t.at('2026-11-04 08:59');
+  await t.rpc('tick');
+  await t.at('2026-11-04 09:00');
+  await t.rpc('tick');
+  const states = await t.states(did);
+  assert.equal(states['長苓'], 'withdrawn');
+  assert.equal(states['小薇'], 'withdrawn');
+  assert.equal((await t.notes('長苓', 'day_started')).length, 1);
+  const [d] = await t.q(`select started, final_short from case_days where id = $1`, [did]);
+  assert.deepEqual(d, { started: true, final_short: 2 });
+  const [a] = await t.q(`select id from assignments where case_day_id = $1 and member_id = $2`, [did, t.ids['長苓']]);
+  await t.as('長苓');
+  await expectError(t.rpc('respond_invite', a.id, true), 'invite_closed:withdrawn');
+});
