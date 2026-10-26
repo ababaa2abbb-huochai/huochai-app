@@ -12,7 +12,11 @@ import { Admin } from './screens/Admin.jsx';
 export function App({ api }) {
   const [version, setVersion] = useState(0);
   const [me, setMe] = useState(null);
-  const [route, setRoute] = useState({ tab: 'calendar' });
+  // LINE 通知裡的連結會帶 ?tab=shifts，直接打開對應的頁面
+  const [route, setRoute] = useState(() => {
+    const tab = new URLSearchParams(location.search).get('tab');
+    return { tab: ['calendar', 'shifts', 'ignite', 'cases', 'avail', 'notes'].includes(tab) ? tab : 'calendar' };
+  });
   const [toastMsg, setToast] = useState(null);
 
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
