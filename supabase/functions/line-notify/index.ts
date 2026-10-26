@@ -1,9 +1,9 @@
 // 把通知匣裡還沒送的通知送出去。由排程每分鐘呼叫一次。
-// 省訊息額度：只有「邀請」和「時間變更」走 LINE 推播，其他通知留在 App 的鈴鐺裡。
+// 省訊息額度：只有「邀請」「時間變更」「缺人提醒」走 LINE 推播，其他通知留在 App 的鈴鐺裡。
 import { json, admin, linePush } from '../_shared/util.ts';
 
 const LIFF_URL = `https://liff.line.me/${Deno.env.get('LIFF_ID')}`;
-const PUSH_KINDS = new Set((Deno.env.get('LINE_PUSH_KINDS') ?? 'invite,time_change').split(','));
+const PUSH_KINDS = new Set((Deno.env.get('LINE_PUSH_KINDS') ?? 'invite,time_change,short_staffed').split(','));
 const WD = ['日', '一', '二', '三', '四', '五', '六'];
 
 function mdw(day: string) {
@@ -62,6 +62,14 @@ function timeChangeMessage(p: Record<string, any>) {
   };
 }
 
+function shortMessage(p: Record<string, any>) {
+  const head = p.stage === 'day_before' ? `明天 ${mdw(p.day)}` : mdw(p.day);
+  return {
+    type: 'text',
+    text: `${head}（${p.area}・${p.job_type}）還缺 ${p.missing} 人。\n可以改成急件、加人，或找鄰家女孩：${LIFF_URL}?tab=cases`,
+  };
+}
+
 Deno.serve(async (req) => {
   const auth = req.headers.get('Authorization') ?? '';
   if (auth !== `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` && auth !== `Bearer ${Deno.env.get('CRON_SECRET')}`) {
@@ -76,7 +84,7 @@ Deno.serve(async (req) => {
   for (const n of list ?? []) {
     try {
       if (PUSH_KINDS.has(n.kind) && n.line_user_id) {
-        const msg = n.kind === 'invite' ? inviteMessage(n.payload) : timeChangeMessage(n.payload);
+        const msg = n.kind === 'invite' ? inviteMessage(n.payload) : n.kind === 'short_staffed' ? shortMessage(n.payload) : timeChangeMessage(n.payload);
         await linePush(n.line_user_id, [msg]);
       }
       done.push(n.id);

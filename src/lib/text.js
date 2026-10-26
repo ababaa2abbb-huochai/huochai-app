@@ -95,6 +95,8 @@ const ERRORS = {
   case_extinguished: '這根火柴已經熄滅了。',
   day_removed: '這一天已經從案子移除了。',
   bad_state: '填班狀態有誤。',
+  guest_name_required: '請填鄰家女孩的名字。',
+  already_full: '這天人數已經滿了。',
 };
 
 const CLOSED = {
@@ -141,6 +143,10 @@ export function noteText(n) {
     case 'taken_elsewhere': return `${who} ${when}已經確認別的班，已自動補位`;
     case 'list_exhausted': return `${when}候補用完了，還差 ${p.missing} 人，請加人`;
     case 'cancelled': return `${who} 取消了 ${when}的班（${REASONS[p.reason] || ''}）${p.urgent ? '・急' : ''}，已自動補位`;
+    case 'short_staffed': return p.stage === 'day_before'
+      ? `明天 ${when}還缺 ${p.missing} 人（${p.area}），可以改急件、加人或找鄰家女孩`
+      : `${when}還缺 ${p.missing} 人（${p.area}），出班前 3 天了`;
+    case 'day_started': return `${p.owner_name} ${when}的案子已開工，這個邀請已關閉`;
     case 'time_change_ok': return `${who} 可以配合 ${when}的新時間`;
     case 'time_change_declined': return `${who} 無法配合 ${when}的新時間，已自動補位`;
     default: return n.kind;
@@ -149,7 +155,7 @@ export function noteText(n) {
 
 export function noteTarget(kind) {
   if (['invite', 'direct_added', 'closed_full', 'withdrawn', 'released', 'moved', 'case_cancelled',
-    'time_change', 'case_updated', 'replaced_out', 'replaced_in', 'day_before'].includes(kind)) return 'shifts';
+    'time_change', 'case_updated', 'replaced_out', 'replaced_in', 'day_before', 'day_started'].includes(kind)) return 'shifts';
   if (kind === 'fill_reminder') return 'avail';
   return 'cases';
 }

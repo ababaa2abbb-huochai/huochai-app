@@ -51,7 +51,7 @@ export function Ignite() {
       const s = spec[d];
       const direct = s.people.filter((p) => p.direct).length;
       if (direct + (s.self_on ? 1 : 0) > s.need) return `${mdw(d)}直接加入的人數超過需要的人數了。`;
-      const noWage = s.people.find((p) => !p.wage);
+      const noWage = s.people.find((p) => !p.guest && !p.wage);
       if (noWage) return `請填 ${noWage.name} 在 ${md(d)} 的時薪。`;
     }
     return null;
@@ -78,7 +78,9 @@ export function Ignite() {
       days: days.map((d) => ({
         day: d, need: cur[d].need, self_on: cur[d].self_on, urgent: cur[d].urgent,
         cancel_conflict: cur[d].cancel_conflict,
-        people: cur[d].people.map((x) => ({ member_id: x.id, wage: Number(x.wage), direct: x.direct })),
+        people: cur[d].people.map((x) => (x.guest
+          ? { guest_name: x.name, wage: x.wage ? Number(x.wage) : null }
+          : { member_id: x.id, wage: Number(x.wage), direct: x.direct })),
       })),
     };
     const id = await run('ignite', { p: payload });
@@ -187,6 +189,13 @@ function DayEditor({ day, s, set, otherDays, copyTo }) {
   }, [day, version]);
 
   const inList = new Set(s.people.map((p) => p.id));
+  const [guestName, setGuestName] = useState('');
+  const addGuest = () => {
+    const n = guestName.trim();
+    if (!n) return;
+    set({ people: [...s.people, { id: 'guest-' + Date.now(), guest: true, name: n, wage: '', direct: true }] });
+    setGuestName('');
+  };
   const add = (c) => set({ people: [...s.people, { id: c.id, name: c.name, wage: c.last_wage ? String(c.last_wage) : '', direct: false, availability: c.availability }] });
   const move = (i, dir) => {
     const j = i + dir;
@@ -251,7 +260,7 @@ function DayEditor({ day, s, set, otherDays, copyTo }) {
           )}
           {s.people.map((p, i) => {
             let tag; let cls;
-            if (p.direct) { tag = '直接加入・已確認'; cls = 'ok'; } else {
+            if (p.guest) { tag = '鄰家女孩・直接算確認'; cls = 'ok'; } else if (p.direct) { tag = '直接加入・已確認'; cls = 'ok'; } else {
               seen += 1;
               if (s.urgent || seen <= toInvite) { tag = s.urgent ? '同時邀請' : '先邀'; cls = 'go'; } else { tag = '候補'; cls = ''; }
             }
@@ -259,15 +268,15 @@ function DayEditor({ day, s, set, otherDays, copyTo }) {
             if (p.availability === 'none') tag += '・沒標有空';
             return (
               <li style="align-items:center">
-                <span class={`rank ${cls}`}>{i + 1}</span>
+                <span class={`rank ${cls}`}>{p.guest ? '鄰' : i + 1}</span>
                 <div style="flex:1;min-width:0">
                   <div class="row" style="gap:6px"><b style="font-weight:500">{p.name}</b>
                     {p.availability === 'wild' && <span class="chip wild" style="padding:1px 6px"><Leaf /></span>}</div>
                   <div class="small" style={`color:${cls === 'go' ? 'var(--match-deep)' : 'var(--muted)'}`}>{tag}</div>
-                  <button class="link" style="padding:2px 0" onClick={() => patch(i, { direct: !p.direct })}>{p.direct ? '改回邀請' : '直接加入'}</button>
+                  {!p.guest && <button class="link" style="padding:2px 0" onClick={() => patch(i, { direct: !p.direct })}>{p.direct ? '改回邀請' : '直接加入'}</button>}
                 </div>
                 <label class="small muted row" style="gap:4px">時薪
-                  <input class="input sm" style="width:68px" inputMode="numeric" placeholder="必填" value={p.wage}
+                  <input class="input sm" style="width:68px" inputMode="numeric" placeholder={p.guest ? '選填' : '必填'} value={p.wage}
                     aria-label={`${p.name} 的時薪`} onInput={(e) => patch(i, { wage: e.currentTarget.value.replace(/\D/g, '') })} />
                 </label>
                 <div style="display:flex;flex-direction:column">
@@ -280,6 +289,14 @@ function DayEditor({ day, s, set, otherDays, copyTo }) {
           })}
         </ol>
       )}
+
+      <div class="row">
+        <input class="input" id={`guest-${day}`} style="flex:1" placeholder="團隊以外的人，例：小美" value={guestName}
+          aria-label="鄰家女孩的名字" onInput={(e) => setGuestName(e.currentTarget.value)}
+          onKeyDown={(e) => e.key === 'Enter' && addGuest()} />
+        <button class="btn" disabled={!guestName.trim()} onClick={addGuest}>＋ 鄰家女孩</button>
+      </div>
+      <p class="note small" style="margin-top:-8px">鄰家女孩是你自己找來、團隊以外的人：直接算進人數，不需要帳號，也不會收到通知。</p>
 
       <div class="box">
         {s.urgent

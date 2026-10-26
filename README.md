@@ -38,7 +38,7 @@ VITE_SUPABASE_ANON_KEY=
 VITE_LIFF_ID=
 ```
 
-Edge Function 的環境變數：`LINE_LOGIN_CHANNEL_ID`、`LINE_CHANNEL_SECRET`、`LINE_CHANNEL_ACCESS_TOKEN`、`LIFF_ID`、`APP_JWT_SECRET`（= Supabase JWT Secret）、`CRON_SECRET`、`LINE_PUSH_KINDS`（預設 `invite,time_change`）。
+Edge Function 的環境變數：`LINE_LOGIN_CHANNEL_ID`、`LINE_CHANNEL_SECRET`、`LINE_CHANNEL_ACCESS_TOKEN`、`LIFF_ID`、`APP_JWT_SECRET`（= Supabase JWT Secret）、`CRON_SECRET`、`LINE_PUSH_KINDS`（預設 `invite,time_change,short_staffed`）。
 
 ## 新增函式時
 

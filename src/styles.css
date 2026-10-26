@@ -102,6 +102,7 @@ h3 { margin: 0; font-size: 15px; font-weight: 700; }
 .chip.dark { background: var(--ink); color: #fff; }
 .chip.ember { background: var(--ember); color: var(--match-deep); }
 .chip.wild { background: var(--wild); color: var(--wild-ink); }
+.chip.short { background: var(--match-deep); color: #fff; }
 .chip.line { background: none; border: 1px solid var(--line); color: var(--muted); }
 .rank { width: 26px; height: 26px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex: none; background: var(--heat0); }
 .rank.go { background: var(--match); color: #fff; }

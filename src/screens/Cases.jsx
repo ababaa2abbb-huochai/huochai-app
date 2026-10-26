@@ -8,8 +8,17 @@ const CLOSED_TEXT = {
   cancelled: '取消', released: '已釋出', replaced: '已代班',
 };
 const RELEASE_TEXT = {
+  started: '已開工', guest_removed: '已移除',
   need_reduced: '減少人數', moved: '改期', day_removed: '刪除這天', extinguished: '熄滅', time_change: '無法配合新時間', replaced: '代班',
 };
+
+// 某一天的狀態：已開工／已滿／缺人（3 天內還沒滿）／找人中
+function dayStatus(d) {
+  if (d.started) return d.final_short > 0 ? ['開工・缺 ' + d.final_short + ' 人', 'line'] : ['已開工', 'line'];
+  if (d.confirmed >= d.need) return ['已滿', 'dark'];
+  if (d.days_left <= 3) return ['缺 ' + (d.need - d.confirmed) + ' 人', 'short'];
+  return ['找人中', 'ember'];
+}
 
 export function Cases() {
   const { route, go } = useApp();
@@ -29,19 +38,23 @@ export function Cases() {
       )}
       {cases?.map((c) => {
         const allFull = c.days.length > 0 && c.days.every((d) => d.confirmed >= d.need);
+        const short = c.days.some((d) => dayStatus(d)[1] === 'short');
+        const allStarted = c.days.length > 0 && c.days.every((d) => d.started);
         return (
           <button class="case-card" onClick={() => go('cases', { caseId: c.id })}>
             <div class="spread">
               <b style="font-size:16px">{c.area}・{c.job_type}</b>
               {c.status === 'extinguished' ? <span class="chip line">已熄滅</span>
-                : allFull ? <span class="chip dark">已滿</span> : <span class="chip ember">找人中</span>}
+                : allStarted ? <span class="chip line">已開工</span>
+                : allFull ? <span class="chip dark">已滿</span> : short ? <span class="chip short">缺人</span> : <span class="chip ember">找人中</span>}
             </div>
-            <span class="small muted">{c.start_time}–{c.end_time}{c.owner_name && c.owner_id ? '' : ''}</span>
+            <span class="small muted">{c.start_time}–{c.end_time}</span>
             {c.days.map((d) => (
               <div class="row" style="gap:10px">
                 <span style="width:84px;font-size:14px">{mdw(d.day)}</span>
                 <div class="progress"><div style={`width:${Math.min(100, (d.confirmed / d.need) * 100)}%`} /></div>
                 <span class="small" style="width:44px;text-align:right">{d.confirmed}/{d.need}</span>
+                {['short', 'line'].includes(dayStatus(d)[1]) && <span class={`chip ${dayStatus(d)[1]}`} style="padding:1px 8px">{dayStatus(d)[0]}</span>}
               </div>
             ))}
           </button>
@@ -52,7 +65,7 @@ export function Cases() {
 }
 
 function CaseDetail({ c }) {
-  const { go, me, now, toast, api } = useApp();
+  const { go, me, now, toast, api, ask } = useApp();
   const [active, setActive] = useState(c.days[0]?.id);
   const [sheet, setSheet] = useState(null);
   const [run, busy] = useAction();
@@ -115,7 +128,9 @@ function CaseDetail({ c }) {
           <div class="pad">
             <div class="box" style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
               <div class="spread">
-                <b>{d.confirmed >= d.need ? '人數已滿' : `還差 ${d.need - d.confirmed} 人`}</b>
+                <b class="row" style="gap:8px">{d.started ? (d.final_short ? `已開工，缺 ${d.final_short} 人出班` : '已開工')
+                  : d.confirmed >= d.need ? '人數已滿' : `還差 ${d.need - d.confirmed} 人`}
+                  {dayStatus(d)[1] === 'short' && <span class="chip short">出班前 {d.days_left} 天</span>}</b>
                 <span class="small muted">{d.self_on ? '含你自己' : '你只接洽'}{d.urgent ? '・急件' : ''}</span>
               </div>
               <div class="row"><div class="progress"><div style={`width:${Math.min(100, (d.confirmed / d.need) * 100)}%`} /></div>
@@ -133,6 +148,11 @@ function CaseDetail({ c }) {
                 <PersonRow a={a} d={d} now={now} extinct={extinct} busy={busy}
                   onDirect={() => run('make_direct', { p_assignment: a.id }, `${a.name} 已直接加入`)}
                   onReplace={() => setSheet({ kind: 'replace', a })}
+                  onRemoveGuest={async () => {
+                    if (await ask(`把鄰家女孩 ${a.name} 從這天移除？系統會照順位補位。`, '移除')) {
+                      run('remove_guest', { p_assignment: a.id }, `已移除 ${a.name}`);
+                    }
+                  }}
                   onMove={(dir) => {
                     const queued = d.assignments.filter((x) => x.state === 'queued');
                     const qi = queued.findIndex((x) => x.id === a.id);
@@ -148,7 +168,20 @@ function CaseDetail({ c }) {
             </ol>
             {!extinct && (
               <div class="stack" style="margin-top:14px">
-                <button class="btn" style="border-style:dashed" onClick={() => setSheet({ kind: 'add' })}>＋ 加人到順位</button>
+                {!d.started && (
+                  <div class="row">
+                    <button class="btn" style="flex:1;border-style:dashed" onClick={() => setSheet({ kind: 'add' })}>＋ 加人到順位</button>
+                    <button class="btn" style="flex:1;border-style:dashed" disabled={d.confirmed >= d.need}
+                      onClick={() => setSheet({ kind: 'guest' })}>＋ 鄰家女孩</button>
+                  </div>
+                )}
+                {dayStatus(d)[1] === 'short' && !d.urgent && (
+                  <div class="box ember stack" style="gap:8px">
+                    <span>出班前 {d.days_left} 天還缺 {d.need - d.confirmed} 人。可以改成急件同時邀請全部候補、加人，或找鄰家女孩。</span>
+                    <button class="btn primary" disabled={busy}
+                      onClick={() => run('set_day_options', { p_case_day: d.id, p: { urgent: true } }, '已改成急件，候補全部同時邀請')}>改成急件</button>
+                  </div>
+                )}
                 <button class="btn primary block" onClick={share}>分享布達訊息到 LINE 群組</button>
                 <p class="note small" style="margin-top:-6px">先自己建好 LINE 群組，再把整理好的訊息傳進去。</p>
                 <div class="row">
@@ -162,6 +195,7 @@ function CaseDetail({ c }) {
       )}
 
       {sheet?.kind === 'add' && <AddPeopleSheet d={d} onClose={() => setSheet(null)} />}
+      {sheet?.kind === 'guest' && <GuestSheet d={d} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'replace' && <ReplaceSheet a={sheet.a} d={d} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'edit' && <EditSheet c={c} d={d} onClose={() => setSheet(null)} onDay={setActive} />}
       {sheet?.kind === 'text' && (
@@ -183,7 +217,24 @@ function CaseDetail({ c }) {
   );
 }
 
-function PersonRow({ a, now, extinct, busy, onDirect, onReplace, onMove }) {
+function PersonRow({ a, now, extinct, busy, onDirect, onReplace, onMove, onRemoveGuest }) {
+  if (a.guest) {
+    const gone = a.state !== 'confirmed';
+    return (
+      <li style={gone ? 'opacity:.6' : ''}>
+        <span class={`rank ${gone ? '' : 'ok'}`}>鄰</span>
+        <div style="flex:1;min-width:0">
+          <div class="row" style="gap:6px">
+            <span style={gone ? 'text-decoration:line-through' : ''}>{a.name}</span>
+            <span class="small muted">{a.wage ? `時薪 ${a.wage}` : ''}</span>
+          </div>
+          <div class="small muted">鄰家女孩・團隊以外</div>
+        </div>
+        {!gone && !extinct && <button class="btn sm" disabled={busy} onClick={onRemoveGuest}>移除</button>}
+        {gone ? <span class="chip">已移除</span> : <span class="chip dark">已確認</span>}
+      </li>
+    );
+  }
   const closed = !['confirmed', 'invited', 'queued'].includes(a.state);
   let sub = '';
   if (a.state === 'invited') {
@@ -192,7 +243,7 @@ function PersonRow({ a, now, extinct, busy, onDirect, onReplace, onMove }) {
     else if (a.paused_now && twDay(a.deadline) === twDay(now) && twTime(a.deadline) >= '18:00') sub = `${a.availability === 'wild' ? '野放中' : '出班中'}・18:00 後開始倒數`;
     else sub = `剩 ${left} 回覆`;
   }
-  if (a.state === 'confirmed') sub = a.time_change_pending ? '等她回覆新時間' : (a.direct ? '直接加入' : '');
+  if (a.state === 'confirmed') sub = a.time_change_pending ? '等回覆新時間' : (a.direct ? '直接加入' : '');
   if (a.state === 'cancelled') sub = REASONS[a.cancel_reason] || '';
   if (a.state === 'released') sub = RELEASE_TEXT[a.release_reason] || '';
   const rankCls = a.state === 'confirmed' ? 'ok' : a.state === 'invited' ? 'go' : '';
@@ -222,6 +273,26 @@ function PersonRow({ a, now, extinct, busy, onDirect, onReplace, onMove }) {
       {a.state === 'queued' && <span class="chip line">候補</span>}
       {closed && <span class="chip">{CLOSED_TEXT[a.state]}</span>}
     </li>
+  );
+}
+
+function GuestSheet({ d, onClose }) {
+  const [name, setName] = useState('');
+  const [wage, setWage] = useState('');
+  const [run, busy] = useAction();
+  return (
+    <Sheet title={`${mdw(d.day)} 加鄰家女孩`} onClose={onClose}>
+      <p class="note">鄰家女孩是你自己找來、團隊以外的人。她直接算進人數，不需要帳號，也不會收到通知，細節請在群組裡講。加了之後，多出來的邀請會自動撤回。</p>
+      <label class="field">名字
+        <input class="input" id="guest-name" value={name} placeholder="例：小美" onInput={(e) => setName(e.currentTarget.value)} />
+      </label>
+      <label class="field">時薪（選填，只有你和管理者看得到）
+        <input class="input" id="guest-wage" inputMode="numeric" value={wage} onInput={(e) => setWage(e.currentTarget.value.replace(/\D/g, ''))} />
+      </label>
+      <button class="btn primary block" disabled={busy || !name.trim()} onClick={async () => {
+        if (await run('add_guest', { p_case_day: d.id, p_name: name.trim(), p_wage: wage ? Number(wage) : null }, `已加入鄰家女孩 ${name.trim()}`)) onClose();
+      }}>加入 {name.trim() || '鄰家女孩'}</button>
+    </Sheet>
   );
 }
 
