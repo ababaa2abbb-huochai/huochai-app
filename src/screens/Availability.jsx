@@ -6,7 +6,7 @@ const NEXT = { none: 'free', free: 'wild', wild: 'none' };
 const LABEL = { none: '沒空', free: '有空', wild: '野放' };
 
 export function Availability() {
-  const { today, api, toast } = useApp();
+  const { today, api, toast, ask } = useApp();
   const thisMonth = monthStart(today);
   const [month, setMonth] = useState(Number(today.slice(8)) >= 10 ? addMonths(thisMonth, 1) : thisMonth);
   const [data] = useData('get_month', { p_month: month });
@@ -40,7 +40,7 @@ export function Availability() {
 
   const copyLast = async () => {
     const hasAny = days.some((d) => marks[d] && d >= today);
-    if (hasAny && !window.confirm('用上個月的習慣覆蓋這個月（今天以後）的標記？')) return;
+    if (hasAny && !(await ask('用上個月的習慣覆蓋這個月（今天以後）的標記？', '覆蓋'))) return;
     const prev = await api.rpc('get_month', { p_month: addMonths(month, -1) });
     const prevMine = prev.mine || {};
     const prevDays = Object.keys(prevMine);
@@ -56,7 +56,7 @@ export function Availability() {
   };
 
   const clear = async () => {
-    if (!window.confirm(`清除 ${monthTitle(month)}（今天以後）的所有標記？`)) return;
+    if (!(await ask(`清除 ${monthTitle(month)}（今天以後）的所有標記？`, '清除'))) return;
     const changes = days.filter((d) => d >= today && marks[d]).map((d) => ({ day: d, state: null }));
     const next = { ...marks };
     changes.forEach((c) => { next[c.day] = undefined; });

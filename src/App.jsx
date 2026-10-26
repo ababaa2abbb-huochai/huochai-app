@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'preact/hooks';
-import { Ctx, Flame, Icon, ICONS } from './ui.jsx';
+import { Ctx, Flame, Icon, ICONS, Sheet } from './ui.jsx';
 import { twStamp } from './lib/text.js';
 import { Calendar } from './screens/Calendar.jsx';
 import { Availability } from './screens/Availability.jsx';
@@ -18,6 +18,10 @@ export function App({ api }) {
     return { tab: ['calendar', 'shifts', 'ignite', 'cases', 'avail', 'notes'].includes(tab) ? tab : 'calendar' };
   });
   const [toastMsg, setToast] = useState(null);
+  const [askReq, setAsk] = useState(null);
+  // 頁面內的確認視窗（不用瀏覽器的 confirm，LINE 和部分環境會擋掉）
+  const ask = useCallback((text, okLabel = '確定') => new Promise((resolve) => setAsk({ text, okLabel, resolve })), []);
+  const answer = (v) => { askReq?.resolve(v); setAsk(null); };
 
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
   useEffect(() => api.subscribe(refresh), [api, refresh]);
@@ -53,7 +57,7 @@ export function App({ api }) {
     );
   }
 
-  const ctx = { api, version, refresh, me, toast, go, route, now: me.now, today: me.today };
+  const ctx = { api, version, refresh, me, toast, go, route, ask, now: me.now, today: me.today };
   const tab = route.tab;
   const Screen = {
     calendar: Calendar, avail: Availability, ignite: Ignite, cases: Cases,
@@ -63,7 +67,7 @@ export function App({ api }) {
   return (
     <Ctx.Provider value={ctx}>
       <div class="app">
-        {api.isDemo && <DemoBar api={api} me={me} toast={toast} />}
+        {api.isDemo && <DemoBar api={api} me={me} toast={toast} ask={ask} />}
         {!['ignite'].includes(tab) && !route.caseId && (
           <header class="top">
             <div class="brand"><Flame color="#C2410C" />賣女孩的小火柴</div>
@@ -80,6 +84,13 @@ export function App({ api }) {
         )}
         <main class="main"><Screen key={tab} /></main>
         <Nav tab={tab} go={go} />
+        {askReq && (
+          <Sheet title="請確認" onClose={() => answer(false)}>
+            <p class="note" style="font-size:15px;color:var(--ink)">{askReq.text}</p>
+            <button class="btn primary block" onClick={() => answer(true)}>{askReq.okLabel}</button>
+            <button class="btn" onClick={() => answer(false)}>先不要</button>
+          </Sheet>
+        )}
         {toastMsg && <div class={`toast ${toastMsg.err ? 'err' : ''}`} role="status">{toastMsg.text}</div>}
       </div>
     </Ctx.Provider>
@@ -105,7 +116,7 @@ function Nav({ tab, go }) {
   );
 }
 
-function DemoBar({ api, me, toast }) {
+function DemoBar({ api, me, toast, ask }) {
   const [people, setPeople] = useState([]);
   useEffect(() => {
     api.listIdentities().then(setPeople);
@@ -126,7 +137,7 @@ function DemoBar({ api, me, toast }) {
       <button onClick={() => advance(1)}>＋1 小時</button>
       <button onClick={() => advance(24)}>＋1 天</button>
       <button onClick={async () => {
-        if (window.confirm('清除所有試玩資料，回到一開始的狀態？')) { await api.reset(); toast('已重設試玩資料'); }
+        if (await ask('清除所有試玩資料，回到一開始的狀態？', '重設試玩資料')) { await api.reset(); toast('已重設試玩資料'); }
       }}>重設</button>
     </div>
   );

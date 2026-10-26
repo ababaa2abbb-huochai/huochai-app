@@ -4,3 +4,4 @@ dist/
 .env.local
 test/e2e/shots*/
 dist-demo/
+artifact/

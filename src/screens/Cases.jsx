@@ -311,6 +311,7 @@ function ReplaceSheet({ a, d, onClose }) {
 
 function EditSheet({ c, d, onClose, onDay }) {
   const [run, busy] = useAction();
+  const { ask } = useApp();
   const [base, setBase] = useState({ area: c.area, address: c.address || '', job_type: c.job_type, start_time: c.start_time, end_time: c.end_time });
   const [day, setDay] = useState({ need: d.need, self_on: d.self_on, urgent: d.urgent });
   const confirmedRows = d.assignments.filter((a) => a.state === 'confirmed');
@@ -374,7 +375,7 @@ function EditSheet({ c, d, onClose, onDay }) {
         <button class="btn" onClick={() => setPicker('move')}>把 {md(d.day)} 改到別天</button>
         <button class="btn" onClick={() => setPicker('add')}>＋ 加一天</button>
         <button class="btn danger" disabled={busy} onClick={async () => {
-          if (!window.confirm(`刪除 ${mdw(d.day)}？這天的邀請會撤回、已確認的人會釋出。`)) return;
+          if (!(await ask(`刪除 ${mdw(d.day)}？這天的邀請會撤回、已確認的人會釋出。`, '刪除這天'))) return;
           if (await run('remove_day', { p_case_day: d.id }, `已刪除 ${mdw(d.day)}`)) onClose();
         }}>刪除這天</button>
       </div>
