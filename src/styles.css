@@ -23,15 +23,15 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--soft); color: var(--ink); font-family: var(--font); -webkit-text-size-adjust: 100%; }
-body { min-height: 100vh; }
+body { min-height: 100vh; min-height: 100dvh; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 :focus-visible { outline: 2px solid var(--match); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
-.app { max-width: 480px; margin: 0 auto; min-height: 100vh; background: var(--paper); display: flex; flex-direction: column; position: relative; }
-.main { flex: 1; padding: 0 0 96px; }
+.app { max-width: 480px; margin: 0 auto; min-height: 100vh; min-height: 100dvh; background: var(--paper); display: flex; flex-direction: column; position: relative; }
+.main { flex: 1; padding: 0 0 calc(96px + env(safe-area-inset-bottom, 0px)); }
 .pad { padding: 0 16px; }
 
 /* 試玩列 */
@@ -110,7 +110,8 @@ h3 { margin: 0; font-size: 15px; font-weight: 700; }
 /* 表單 */
 .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: var(--muted); }
 .input { height: 48px; border-radius: 12px; border: 1px solid var(--line); padding: 0 12px; font-size: 16px; font-weight: 400; color: var(--ink); background: var(--paper); width: 100%; }
-.input.sm { height: 36px; border-radius: 8px; font-size: 14px; padding: 0 8px; }
+/* iPhone 輸入框字小於 16px 會在點下時自動放大畫面 */
+.input.sm { height: 36px; border-radius: 8px; font-size: 16px; padding: 0 8px; }
 .seg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .seg button { height: 48px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--paper); font-size: 15px; font-weight: 500; }
 .seg button[aria-pressed="true"] { background: var(--ember); border-color: var(--match); color: var(--match-deep); }
@@ -144,7 +145,7 @@ h3 { margin: 0; font-size: 15px; font-weight: 700; }
 .case-card { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
 
 /* 底部導覽 */
-.nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; height: 76px; background: var(--paper); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center; padding-bottom: env(safe-area-inset-bottom); z-index: 5; }
+.nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; height: calc(76px + env(safe-area-inset-bottom, 0px)); background: var(--paper); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center; padding-bottom: env(safe-area-inset-bottom, 0px); z-index: 5; }
 .nav button { height: 60px; border: none; background: none; font-size: 11px; color: var(--muted); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
 .nav button[aria-current="page"] { color: var(--match); font-weight: 700; }
 .nav .fab { justify-content: flex-end; padding-bottom: 6px; height: 76px; color: var(--match); font-weight: 700; }
@@ -152,17 +153,17 @@ h3 { margin: 0; font-size: 15px; font-weight: 700; }
 
 /* 底部彈出 */
 .sheet-bg { position: fixed; inset: 0; background: rgba(31, 29, 27, 0.4); z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
-.sheet { background: var(--paper); width: 100%; max-width: 480px; max-height: 88vh; overflow-y: auto; border-radius: 20px 20px 0 0; padding: 18px 16px 24px; display: flex; flex-direction: column; gap: 14px; animation: rise 0.18s ease-out; }
+.sheet { background: var(--paper); width: 100%; max-width: 480px; max-height: 88vh; max-height: 88dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; border-radius: 20px 20px 0 0; padding: 18px 16px calc(24px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 14px; animation: rise 0.18s ease-out; }
 .sheet > * { flex-shrink: 0; }
 @keyframes rise { from { transform: translateY(24px); opacity: 0.6; } to { transform: none; opacity: 1; } }
 .option { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
 .option b { font-size: 15px; }
 .option span { font-size: 13px; color: var(--muted); }
 
-.toast { position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; font-size: 14px; z-index: 30; max-width: calc(100% - 32px); }
+.toast { position: fixed; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; font-size: 14px; z-index: 30; max-width: calc(100% - 32px); }
 .toast.err { background: var(--match-deep); }
 
 .empty { padding: 32px 16px; text-align: center; color: var(--muted); font-size: 14px; line-height: 1.7; }
-.loading { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--muted); font-size: 14px; background: var(--paper); }
+.loading { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--muted); font-size: 14px; background: var(--paper); }
 .loading svg { animation: flicker 1.2s ease-in-out infinite; }
 @keyframes flicker { 50% { opacity: 0.45; transform: scale(0.96); } }
