@@ -5,3 +5,4 @@ dist/
 test/e2e/shots*/
 dist-demo/
 artifact/
+deploy/
