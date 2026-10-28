@@ -5,6 +5,7 @@
 create table members (
   id            uuid primary key default gen_random_uuid(),
   line_user_id  text unique,
+  auth_user_id  uuid unique,                     -- Supabase 登入帳號（LINE 登入時建立）
   name          text not null,
   role          text not null default 'member' check (role in ('member', 'admin')),
   status        text not null default 'pending' check (status in ('pending', 'active', 'paused')),

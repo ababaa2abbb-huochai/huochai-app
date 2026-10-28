@@ -17,7 +17,7 @@ to authenticated;
 
 -- 3. 只有伺服器（Edge Function 用 service_role）能呼叫
 grant execute on function
-  line_upsert_member(text, text), respond_invite_by_line(text, uuid, boolean),
+  line_upsert_member(text, text, uuid), respond_invite_by_line(text, uuid, boolean),
   take_unsent_notifications(int), mark_notifications_sent(uuid[], text), tick()
 to service_role;
 

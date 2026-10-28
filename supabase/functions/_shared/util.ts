@@ -11,9 +11,18 @@ export function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 }
 
+// 依序找第一個有設定的環境變數（新版金鑰用自訂名稱，舊版沿用 Supabase 預設的）
+export function env(...names: string[]) {
+  for (const n of names) {
+    const v = Deno.env.get(n);
+    if (v) return v;
+  }
+  throw new Error(`missing env ${names.join(' / ')}`);
+}
+
 export function admin() {
-  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
-    auth: { persistSession: false },
+  return createClient(env('SUPABASE_URL'), env('SB_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY'), {
+    auth: { persistSession: false, autoRefreshToken: false },
   });
 }
 
@@ -28,14 +37,6 @@ function b64url(bytes: Uint8Array) {
 async function hmac(secret: string, data: string) {
   const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   return new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(data)));
-}
-
-// 簽發 Supabase 認得的登入憑證（HS256，用專案的 JWT Secret）
-export async function signJwt(payload: Record<string, unknown>, secret: string) {
-  const header = b64url(enc.encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
-  const body = b64url(enc.encode(JSON.stringify(payload)));
-  const sig = b64url(await hmac(secret, `${header}.${body}`));
-  return `${header}.${body}.${sig}`;
 }
 
 // 驗證 LINE Webhook 簽章

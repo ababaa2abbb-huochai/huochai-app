@@ -11,12 +11,13 @@ language sql stable as $$
   select coalesce(nullif(current_setting('app.now', true), '')::timestamptz, now())
 $$;
 
--- 目前登入的成員：正式版來自 Supabase JWT 的 member_id，試玩／測試用 app.member_id
+-- 目前登入的成員：正式版用 Supabase 登入帳號（JWT 的 sub）對應到成員；試玩／測試用 app.member_id
 create or replace function app_member_id() returns uuid
-language sql stable as $$
+language sql stable security definer as $$
   select coalesce(
     nullif(current_setting('app.member_id', true), '')::uuid,
-    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'member_id')::uuid
+    (select id from members
+      where auth_user_id = nullif(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub', '')::uuid)
   )
 $$;
 

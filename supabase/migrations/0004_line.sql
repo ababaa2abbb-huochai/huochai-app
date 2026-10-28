@@ -1,14 +1,18 @@
 -- LINE 串接用的函式（正式版與試玩都會載入，但只有伺服器端能呼叫）
 
 -- LINE 登入：用 LINE 使用者 ID 找到或建立成員。第一位登入的人自動成為管理者。
-create or replace function line_upsert_member(p_line_user_id text, p_name text) returns jsonb
+create or replace function line_upsert_member(p_line_user_id text, p_name text, p_auth_user_id uuid) returns jsonb
 language plpgsql security definer as $$
 declare m members;
 begin
   select * into m from members where line_user_id = p_line_user_id;
-  if m.id is null then
-    insert into members (line_user_id, name, role, status)
-    values (p_line_user_id, coalesce(nullif(trim(p_name), ''), 'LINE 夥伴'),
+  if m.id is not null then
+    update members set auth_user_id = p_auth_user_id where id = m.id and auth_user_id is distinct from p_auth_user_id
+    returning * into m;
+    select * into m from members where line_user_id = p_line_user_id;
+  else
+    insert into members (line_user_id, auth_user_id, name, role, status)
+    values (p_line_user_id, p_auth_user_id, coalesce(nullif(trim(p_name), ''), 'LINE 夥伴'),
             case when exists (select 1 from members) then 'member' else 'admin' end,
             case when exists (select 1 from members) then 'pending' else 'active' end)
     returning * into m;
@@ -19,12 +23,16 @@ end $$;
 -- 管理者把預先建立的成員（試玩或手動新增的）綁到某個 LINE 帳號，或換手機時重新綁定
 create or replace function admin_bind_line(p_member uuid, p_line_user_id text) returns void
 language plpgsql security definer as $$
-declare me members := require_admin();
+declare
+  me members := require_admin();
+  auth_id uuid;
 begin
-  -- 先把這個 LINE 帳號自動建立出來的待核准空帳號清掉
+  -- 先把這個 LINE 帳號自動建立出來的待核准空帳號清掉，登入帳號移到指定的成員身上
+  select auth_user_id into auth_id from members where line_user_id = p_line_user_id and id <> p_member;
   delete from members where line_user_id = p_line_user_id and id <> p_member and status = 'pending'
     and not exists (select 1 from assignments where member_id = members.id);
-  update members set line_user_id = p_line_user_id where id = p_member;
+  update members set line_user_id = null, auth_user_id = null where line_user_id = p_line_user_id and id <> p_member;
+  update members set line_user_id = p_line_user_id, auth_user_id = coalesce(auth_id, auth_user_id) where id = p_member;
   perform audit('bind_line', jsonb_build_object('member_id', p_member));
 end $$;
 

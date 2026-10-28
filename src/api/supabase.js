@@ -8,7 +8,6 @@ const LIFF_ID = import.meta.env.VITE_LIFF_ID;
 const TOKEN_KEY = 'huochai-session';
 
 let client = null;
-let session = null; // { access_token, expires_at, member }
 const listeners = new Set();
 
 function loadLiff() {
@@ -22,56 +21,33 @@ function loadLiff() {
   });
 }
 
-function makeClient(token) {
-  client = createClient(URL, ANON, {
-    global: { headers: token ? { Authorization: `Bearer ${token}` } : {} },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  if (token) client.realtime.setAuth(token);
-}
-
-async function login() {
-  const liff = await loadLiff();
-  await liff.init({ liffId: LIFF_ID });
+// 用 LINE 身分換一組 Supabase 登入狀態（之後由 Supabase 自動續期）
+async function loginWithLine(liff) {
   if (!liff.isLoggedIn()) {
     liff.login({ redirectUri: location.href });
     return new Promise(() => {}); // 轉去 LINE 登入
   }
-  const idToken = liff.getIDToken();
   const res = await fetch(`${URL}/functions/v1/line-login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', apikey: ANON, Authorization: `Bearer ${ANON}` },
-    body: JSON.stringify({ id_token: idToken }),
+    headers: { 'Content-Type': 'application/json', apikey: ANON },
+    body: JSON.stringify({ id_token: liff.getIDToken() }),
   });
   const body = await res.json();
   if (!res.ok) throw new Error(body.error || 'login_failed');
-  session = body;
-  try {
-    sessionStorage.setItem(TOKEN_KEY, JSON.stringify(session));
-  } catch {
-    /* ignore */
-  }
-  return session;
+  const { error } = await client.auth.setSession({ access_token: body.access_token, refresh_token: body.refresh_token });
+  if (error) throw error;
 }
 
 export const live = {
   isDemo: false,
   liff: null,
   async init() {
-    try {
-      session = JSON.parse(sessionStorage.getItem(TOKEN_KEY));
-    } catch {
-      session = null;
-    }
-    if (!session || session.expires_at * 1000 < Date.now() + 60_000) {
-      session = await login();
-    }
-    makeClient(session.access_token);
-    try {
-      live.liff = await loadLiff();
-    } catch {
-      live.liff = null;
-    }
+    client = createClient(URL, ANON, { auth: { persistSession: true, autoRefreshToken: true, storageKey: TOKEN_KEY } });
+    const liff = await loadLiff();
+    await liff.init({ liffId: LIFF_ID });
+    live.liff = liff;
+    const { data } = await client.auth.getSession();
+    if (!data.session) await loginWithLine(liff);
     // 跟我有關的資料一變動就重新整理：通知、班表、案件
     client
       .channel('changes')
@@ -85,8 +61,8 @@ export const live = {
   async rpc(fn, args = {}) {
     const { data, error } = await client.rpc(fn, args);
     if (error) {
-      if (/JWT expired/i.test(error.message)) {
-        sessionStorage.removeItem(TOKEN_KEY);
+      if (/JWT expired|not_authenticated/i.test(error.message)) {
+        await client.auth.signOut().catch(() => {});
         location.reload();
       }
       throw new Error(error.message);

@@ -1,3 +1,9 @@
-# LINE 的 Webhook 不會帶 Supabase 憑證，用頻道簽章驗證（在函式裡檢查）
+# 這三個函式自己驗證來源（LINE 簽章、LINE 登入憑證、排程密碼），不走 Supabase 預設的 JWT 檢查
 [functions.line-webhook]
+verify_jwt = false
+
+[functions.line-login]
+verify_jwt = false
+
+[functions.line-notify]
 verify_jwt = false

@@ -72,7 +72,8 @@ function shortMessage(p: Record<string, any>) {
 
 Deno.serve(async (req) => {
   const auth = req.headers.get('Authorization') ?? '';
-  if (auth !== `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` && auth !== `Bearer ${Deno.env.get('CRON_SECRET')}`) {
+  const cronSecret = Deno.env.get('CRON_SECRET');
+  if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
     return json({ error: 'forbidden' }, 403);
   }
   const db = admin();

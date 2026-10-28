@@ -34,11 +34,11 @@ npm run build             # 正式版單一 index.html → dist/（需要 .env�
 
 ```
 VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
+VITE_SUPABASE_ANON_KEY=   # 填可發布密鑰 sb_publishable_…
 VITE_LIFF_ID=
 ```
 
-Edge Function 的環境變數：`LINE_LOGIN_CHANNEL_ID`、`LINE_CHANNEL_SECRET`、`LINE_CHANNEL_ACCESS_TOKEN`、`LIFF_ID`、`APP_JWT_SECRET`（= Supabase JWT Secret）、`CRON_SECRET`、`LINE_PUSH_KINDS`（預設 `invite,time_change,short_staffed`）。
+Edge Function 的環境變數：`LINE_LOGIN_CHANNEL_ID`、`LINE_CHANNEL_SECRET`、`LINE_CHANNEL_ACCESS_TOKEN`、`LIFF_ID`、`SB_SECRET_KEY`、`SB_PUBLISHABLE_KEY`（Supabase 新版金鑰）、`CRON_SECRET`、`LINE_PUSH_KINDS`（預設 `invite,time_change,short_staffed`）。
 
 ## 新增函式時
 
