@@ -39,6 +39,8 @@ language sql stable security definer as $$
   select exists (select 1 from members where id = app_member_id() and status = 'active')
 $$;
 grant execute on function is_active_member() to authenticated;
+-- read_own_notifications 直接以登入者身分呼叫 app_member_id()，要另外開放
+grant execute on function app_member_id() to authenticated;
 
 grant select on assignments, case_days, availability, notifications to authenticated;
 create policy read_assignments on assignments for select to authenticated using (is_active_member());
