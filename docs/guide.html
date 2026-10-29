@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>小火柴上手指南</title>
+<meta name="description" content="賣女孩的小火柴：夥伴 5 分鐘上手" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23C2410C'/%3E%3Cpath d='M12 4c2 2.5 3 4 3 5.8a3 3 0 0 1-6 0C9 8 10 6.5 12 4z' fill='none' stroke='white' stroke-width='1.8'/%3E%3Cpath d='M12 12.5V20' stroke='white' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E" />
+<style>
+  :root {
+    --ink: #1F1D1B; --muted: #6B645D; --line: #E7E2DC; --soft: #F7F5F2; --paper: #FFFFFF;
+    --match: #C2410C; --ember: #FDE7DA; --wild: #EDE6BF; --wild-ink: #4F4716;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #F3EEE8; --muted: #B5ADA4; --line: #3A3430; --soft: #1C1917; --paper: #26211E;
+      --match: #F07A3E; --ember: #3B2418; --wild: #34311C; --wild-ink: #E3D98F; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #F3EEE8; --muted: #B5ADA4; --line: #3A3430; --soft: #1C1917; --paper: #26211E;
+    --match: #F07A3E; --ember: #3B2418; --wild: #34311C; --wild-ink: #E3D98F; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--soft); color: var(--ink);
+    font-family: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", "Heiti TC", system-ui, sans-serif;
+    font-size: 16px; line-height: 1.75;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 0 16px calc(48px + env(safe-area-inset-bottom, 0px)); }
+  header.hero { background: #C2410C; color: #fff; padding: 36px 16px 30px; text-align: center; }
+  .hero svg { width: 56px; height: 56px; }
+  .hero h1 { font-size: 26px; margin: 10px 0 4px; letter-spacing: 1px; }
+  .hero p { margin: 0; opacity: .92; }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 4px; }
+  nav.toc a { font-size: 14px; color: var(--match); text-decoration: none; border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 4px 12px; }
+  section { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 18px 18px 14px; margin-top: 16px; }
+  h2 { font-size: 20px; margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+  h2 .n { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--match); color: #fff; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; }
+  h3 { font-size: 16px; margin: 14px 0 4px; }
+  p { margin: 6px 0; }
+  ol, ul { margin: 6px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  b { color: var(--ink); }
+  .box { background: var(--ember); border-radius: 12px; padding: 10px 14px; margin: 10px 0; font-size: 15px; }
+  .box.wild { background: var(--wild); color: var(--wild-ink); }
+  .muted { color: var(--muted); font-size: 14px; }
+  dl.words { display: grid; grid-template-columns: max-content 1fr; gap: 8px 14px; margin: 8px 0; }
+  dl.words dt { font-weight: 700; color: var(--match); white-space: nowrap; }
+  dl.words dd { margin: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; margin: 8px 0; }
+  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; }
+  .cta { display: block; text-align: center; background: #C2410C; color: #fff; text-decoration: none; font-weight: 700; border-radius: 14px; padding: 14px; margin: 12px 0 4px; font-size: 17px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .chip { font-size: 13px; border-radius: 6px; padding: 2px 8px; background: var(--soft); border: 1px solid var(--line); }
+  .chip.free { background: var(--ember); border-color: transparent; }
+  .chip.wild { background: var(--wild); color: var(--wild-ink); border-color: transparent; }
+  details { border-top: 1px solid var(--line); padding: 10px 0; }
+  details:first-of-type { border-top: 0; }
+  summary { font-weight: 700; cursor: pointer; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 26px; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#fff"/><path d="M12 4.6c1.9 2.3 2.8 3.8 2.8 5.5a2.8 2.8 0 0 1-5.6 0c0-1.7.9-3.2 2.8-5.5z" fill="none" stroke="#C2410C" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 14v5.4" stroke="#C2410C" stroke-width="1.7" stroke-linecap="round"/></svg>
+  <h1>賣女孩的小火柴</h1>
+  <p>夥伴 5 分鐘上手指南</p>
+</header>
+
+<div class="wrap">
+  <nav class="toc" aria-label="目錄">
+    <a href="#what">在做什麼</a><a href="#words">名詞</a><a href="#start">第一次登入</a><a href="#avail">填班</a>
+    <a href="#invite">收到邀請</a><a href="#shifts">我的班</a><a href="#ignite">當火柴</a><a href="#faq">常見問題</a>
+  </nav>
+
+  <section id="what">
+    <h2>這是什麼？</h2>
+    <p>以前接到整理案，要在群組喊「誰 11/8 有空？」，再一個一個私訊、等回覆、算人數。</p>
+    <p><b>小火柴把這件事變簡單：</b></p>
+    <ol>
+      <li>大家每個月先在小火柴<b>標好哪幾天有空</b>。</li>
+      <li>接到案子的人<b>「點一根火柴」</b>：選日期、要幾個人、想找誰。</li>
+      <li>系統<b>照順序幫你發邀請</b>，被邀請的人在 LINE 收到邀請卡，按一下就確認。</li>
+      <li>有人婉拒或沒回，系統<b>自動邀請下一位</b>，直到人數湊滿。</li>
+    </ol>
+    <div class="box">一句話：<b>標好有空 → 等邀請 → 按確認</b>。大部分時候你只需要做這三件事。</div>
+  </section>
+
+  <section id="words">
+    <h2>名詞小辭典</h2>
+    <p class="muted">名字來自童話《賣火柴的小女孩》，我們把它反過來玩。</p>
+    <dl class="words">
+      <dt>火柴／主整</dt><dd>接到案子、負責找人的人</dd>
+      <dt>女孩</dt><dd>被邀請出班的夥伴，通常就是你</dd>
+      <dt>點火柴</dt><dd>開一個案子、開始找人</dd>
+      <dt>有空</dt><dd>這天可以接班</dd>
+      <dt>野放</dt><dd>這天在別處工作或出去玩，<b>不太能看手機</b>，回覆會比較慢</dd>
+      <dt>順位</dt><dd>火柴想邀請的人的先後順序</dd>
+      <dt>急件</dt><dd>同時邀請所有候補，先確認的人先拿到</dd>
+      <dt>直接加入</dt><dd>已經私下談好，不用再發邀請</dd>
+      <dt>鄰家女孩</dt><dd>團隊以外、火柴自己找來的幫手（沒有帳號）</dd>
+      <dt>代班</dt><dd>你不能去，由另一位夥伴接手你的位子</dd>
+      <dt>熄滅</dt><dd>案子取消了</dd>
+    </dl>
+  </section>
+
+  <section id="start">
+    <h2><span class="n">1</span>第一次登入</h2>
+    <ol>
+      <li><b>在 LINE 裡</b>點群組裡的小火柴連結。不要複製到 Safari 或 Chrome 開。</li>
+      <li>跳出「小火柴要取得你的資料」→ 按<b>許可</b>。</li>
+      <li>跳出加好友 → 一定要<b>加「賣女孩的小火柴」好友</b>。<br><span class="muted">沒加好友就收不到邀請卡。</span></li>
+      <li>看到「還沒開通」→ 等管理者核准，<b>通常一分鐘內</b>畫面會自動進到 App。</li>
+    </ol>
+    <div class="box">以後要打開小火柴：在 LINE 打開「<b>賣女孩的小火柴</b>」聊天室，按下方的<b>橘色大按鈕</b>就好。</div>
+  </section>
+
+  <section id="avail">
+    <h2><span class="n">2</span>填班：標好有空的日子</h2>
+    <p>點下方的<b>「填班」</b>，每天點一下就會切換：</p>
+    <div class="chips"><span class="chip">沒空</span>→<span class="chip free">有空</span>→<span class="chip wild">野放</span>→ 回到沒空</div>
+    <ul>
+      <li>點了就自動存，<b>不用按送出</b>。</li>
+      <li>請在<b>每月 20 號前</b>標好下個月。</li>
+      <li>每個月習慣差不多？按「沿用上個月」一次搞定。</li>
+    </ul>
+    <div class="box wild"><b>野放</b>的日子，其他夥伴看到的是「沒空」，只有邀請你的火柴知道你在野放、會回得比較晚。那天收到邀請，倒數會等到晚上 18:00 才開始。</div>
+    <p class="muted">月曆上每一格的數字＝那天還能約到幾個人，顏色越深人越多。</p>
+  </section>
+
+  <section id="invite">
+    <h2><span class="n">3</span>收到邀請</h2>
+    <p>LINE 會跳出一張<b>橘色邀請卡</b>，上面有日期、時間、區域、類型和<b>時薪</b>。直接按：</p>
+    <ul>
+      <li><b>確認出班</b>：這班就是你的了。</li>
+      <li><b>婉拒</b>：系統會去邀請下一位，不用不好意思。</li>
+    </ul>
+    <h3>要在多久內回覆？</h3>
+    <table>
+      <tr><th>距離出班日</th><th>回覆時間</th></tr>
+      <tr><td>一週以上</td><td>12 小時</td></tr>
+      <tr><td>3–7 天</td><td>4 小時</td></tr>
+      <tr><td>3 天內</td><td>2 小時</td></tr>
+    </table>
+    <ul>
+      <li><b>晚上 22:00 到早上 08:00 不倒數</b>，安心睡覺。</li>
+      <li>超過時間沒回，系統會邀請下一位。但只要那天<b>還沒額滿</b>，你晚點按確認還是有效。</li>
+      <li>先確認的人先拿到。額滿了再按，會收到「已經額滿」的回覆。</li>
+    </ul>
+    <div class="box">時薪<b>只有你和火柴看得到</b>，其他夥伴看不到。</div>
+  </section>
+
+  <section id="shifts">
+    <h2><span class="n">4</span>我的班</h2>
+    <p>點下方的<b>「我的班」</b>，可以看到：</p>
+    <ul>
+      <li><b>等你回覆</b>的邀請，在這裡也能確認或婉拒。</li>
+      <li><b>接下來的班</b>：時間、地址、同組有誰。地址只有確認出班的人看得到。</li>
+    </ul>
+    <h3>火柴改了時間</h3>
+    <p>會問你「新時間可以嗎？」→ 按<b>沒問題</b>或<b>沒辦法</b>。不回覆就維持原班。</p>
+    <h3>臨時不能去</h3>
+    <ul>
+      <li>按「<b>取消這個班</b>」，選原因。火柴會馬上收到通知，系統也會自動找人補位。</li>
+      <li>已經找好人代班？直接跟火柴說，請火柴用「代班」把位子交接過去。</li>
+      <li>出班前 3 天內取消，請也<b>打電話</b>跟火柴說一聲。</li>
+    </ul>
+  </section>
+
+  <section id="ignite">
+    <h2><span class="n">5</span>當火柴：自己接案找人</h2>
+    <p>接到案子時，按下方中間的<b>「點火柴」</b>：</p>
+    <ol>
+      <li>填時間、區域、類型、地址。</li>
+      <li>選日期和每天要幾個人，自己也要出班就打開「我這天也出班」。</li>
+      <li><b>依順位挑女孩</b>：從名單點「＋」排進來，排越前面越先被邀請。<br><span class="muted">時薪會自動帶入你上次和她合作的金額。</span></li>
+      <li>送出後，系統照順位發邀請；人數滿了就自動停止。</li>
+    </ol>
+    <h3>幾個好用的開關</h3>
+    <ul>
+      <li><b>直接加入</b>：已經私下談好的人，按這個就算確認。</li>
+      <li><b>急件</b>：時間很趕？同時邀請所有候補。</li>
+      <li><b>鄰家女孩</b>：團隊外的幫手，直接算進人數，不會收到通知。</li>
+    </ul>
+    <p>之後到<b>「我的火柴」</b>可以加人、改時間、改日期、換人代班，或熄滅火柴。出班前 3 天和前一天 18:00 還缺人的話，系統會用 LINE 提醒你。</p>
+  </section>
+
+  <section id="faq">
+    <h2>常見問題</h2>
+    <details><summary>收不到 LINE 邀請卡？</summary>
+      <p>確認有加「賣女孩的小火柴」好友，而且沒有封鎖它。邀請也會出現在 App 的「我的班」和右上角的鈴鐺裡。</p></details>
+    <details><summary>打不開、一直轉圈圈？</summary>
+      <p>先把 LINE 更新到最新版，再從 LINE 裡重新打開。還是不行的話，截圖給管理者。</p></details>
+    <details><summary>Android 按返回鍵，App 就關掉了？</summary>
+      <p>這是正常的。請用畫面下方的按鈕切換頁面。關掉後從聊天室的橘色按鈕再打開就好。</p></details>
+    <details><summary>可以用電腦開嗎？</summary>
+      <p>建議用手機的 LINE 開，畫面是為手機設計的。</p></details>
+    <details><summary>別人看得到我的時薪或野放嗎？</summary>
+      <p>看不到。時薪只有你和那根火柴看得到；野放在其他夥伴的月曆上顯示為「沒空」。</p></details>
+    <details><summary>按錯了怎麼辦？</summary>
+      <p>填班隨時可以改。邀請按錯了，請直接跟火柴說，火柴可以調整。</p></details>
+  </section>
+
+  <a class="cta" href="https://liff.line.me/2012270799-XKk8cMm2">打開小火柴</a>
+  <p class="muted" style="text-align:center">請在手機的 LINE 裡點</p>
+
+  <footer>有問題找管理者 Robert ・ 賣女孩的小火柴</footer>
+</div>
+</body>
+</html>
