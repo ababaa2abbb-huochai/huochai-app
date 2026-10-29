@@ -52,7 +52,7 @@ export function App({ api }) {
     return (
       <div class="loading">
         <Flame size={36} color="#C2410C" />
-        <p class="empty">你的帳號（{me.name}）還沒開通。<br />請請管理者在「管理」裡核准你。</p>
+        <p class="empty">你的帳號（{me.name}）還沒開通。<br />請管理者在「管理」裡核准你。</p>
       </div>
     );
   }
